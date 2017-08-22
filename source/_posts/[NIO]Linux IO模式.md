@@ -39,30 +39,40 @@ tags:
 缓存 I/O 的缺点：
 数据在传输过程中需要在应用程序地址空间和内核进行多次数据拷贝操作，这些数据拷贝操作所带来的 CPU 以及内存开销是非常大的。
 
-## IO模式的阻塞与非阻塞
+## IO模式的阻塞与非阻塞（针对I/O）
 
 * 阻塞是如果数据没有准备好，进程必须等待，也不能处理其他任务
 * 非阻塞是如果没数据准备，立刻返回一个error，不需要等待，所以一般需要多次轮训来判断数据是否准备好
 
-## IO模式的同步与异步
+## IO模式的同步与异步（针对进程）
+
+* 同步：进程需要不断去轮训判断数据是否准备好
+* 异步：进程发起read后立刻返回，当数据准备好kernel会给用户进程发送一个signal，告诉它read操作完成了
 
 ## IO多路复用
+
+select/epoll的好处就在于单个process就可以同时处理多个网络连接的IO。它的基本原理就是select，poll，epoll这个function会不断的轮询所负责的所有socket，当某个socket有数据到达了，就通知用户进程。
+
+当用户进程调用了select，那么整个进程会被block，而同时，kernel会"监视"所有select负责的socket，当任何一个socket中的数据准备好了，select就会返回。这个时候用户进程再调用read操作，将数据从kernel拷贝到用户进程。
+
+**IO多路复用是否一定比多线程更好？**
+
+如果处理的连接数不是很高的话，使用select/epoll的web server不一定比使用multi-threading + blocking IO的web server性能更好，可能延迟还更大。**select/epoll的优势并不是对于单个连接能处理得更快，而是在于能处理更多的连接。**
 
 ## select
 
 当用户进程调用了select，那么整个进程会被block，而同时，**kernel会"监视"所有select负责的socket**，当任何一个socket中的数据准备好了，select就会返回。这个时候用户进程再调用read操作，将数据从kernel拷贝到用户进程。
 
+## select/poll与epoll的区别
 
+* select目前几乎在所有的平台上支持
+* select单个进程能够监视的文件描述符的数量存在最大限制1024，poll没有最大数量限制，epoll监视的描述符数量不受限制
+* select/poll需要轮训查看数据是否准备好，epoll当文件准备好会自定调用回调函数
+* **如果空闲文件特别多，使用epoll会更效**
 
-所以，如果处理的连接数不是很高的话，使用select/epoll的web server不一定比使用multi-threading + blocking IO的web server性能更好，可能延迟还更大。select/epoll的优势并不是对于单个连接能处理得更快，而是在于能处理更多的连接。）
+## 其他
 
-用户进程发起read操作之后，立刻就可以开始去做其它的事。而另一方面，从kernel的角度，当它受到一个asynchronous read之后，首先它会立刻返回，所以不会对用户进程产生任何block。然后，kernel会等待数据准备完成，然后将数据拷贝到用户内存，当这一切都完成之后，kernel会给用户进程发送一个signal，告诉它read操作完成了。
-我:
-可以发现non-blocking IO和asynchronous IO的区别还是很明显的。在non-blocking IO中，虽然进程大部分时间都不会被block，但是它仍然要求进程去主动的check，并且当数据准备完成以后，也需要进程主动的再次调用recvfrom来将数据拷贝到用户内存。而asynchronous IO则完全不同。它就像是用户进程将整个IO操作交给了他人（kernel）完成，然后他人做完后发信号通知。在此期间，用户进程不需要去检查IO操作的状态，也不需要主动的去拷贝数据。
-我:
-select/poll返回后需要自己遍历文件，epoll直接在完成后调用回调函数
-我:
-如果空闲文件特别多，使用epoll会更高校
+select的最大缺点就是进程打开的fd是有数量限制的。这对于连接数量比较大的服务器来说根本不能满足。虽然也可以选择多进程的解决方案( Apache就是这样实现的)
 
 ## 参考
 
