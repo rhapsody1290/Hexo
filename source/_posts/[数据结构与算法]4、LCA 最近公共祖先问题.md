@@ -21,6 +21,10 @@ tags:
 
 另外，4 和 5 的最近公共祖先是2，5和3的最近公共祖先是1，2和1的最近公共祖先是1
 
+## Leetcode
+
+https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/description/
+
 ## 转化成求两个链表的第一个交点
 
 思考：
