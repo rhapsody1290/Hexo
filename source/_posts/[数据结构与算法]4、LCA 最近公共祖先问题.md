@@ -21,6 +21,186 @@ tags:
 
 另外，4 和 5 的最近公共祖先是2，5和3的最近公共祖先是1，2和1的最近公共祖先是1
 
+## 转化成求两个链表的第一个交点
+
+思考：
+
+1、深度优先搜索模板
+
+注意递归结束条件
+
+	public void DFS(TreeNode root) {
+	    if (root == null) {
+	        return;
+	    }
+	    DFS(root.left);
+	    DFS(root.right);
+	}
+
+2、增加路径
+
+* 第一次访问节点的时候将元素添加到栈中
+* 访问完左右节点后，将该元素弹出
+* 什么时候输出结果？访问到叶子节点时输出完整路径root.left=null&&root.right= null
+* 输出结果放在什么位置？可以是第一次访问节点、访问左节点后、访问右节点后，一般在第一次访问时，在将元素放入栈之后输出
+
+
+	public void DFS(TreeNode root, List<Integer> path, int key) {
+	    if (root == null) {
+	        return;
+	    }
+	    path.add(root.val);
+	    if (root.left == null && root.right == null) {
+	        System.out.println(path);
+	    }
+	    DFS(root.left, path, key);
+	    DFS(root.right, path, key);
+	    path.remove(path.size() - 1);
+	}
+
+3、如果找到路径后，停止搜索，输出路径
+
+* 返回值：是否找到目标节点true/false
+* 如果左边没有找到（返回false），继续搜索右边；如果左边找到了（返回true），不需要搜索右边。**停止递归的关键是：如果找到元素后，不再进行递归深入**
+
+	boolean find = DFS(root.left, path, key) || DFS(root.right, path, key);
+
+* 本来只要return find即可，但是对于true/false，对于true，不需要pop（）路径，直接return true；如果是false，则需要pop（）当前元素
+* 为什么add不用根据返回值控制？只要递归不深入，不会调用add方法
+
+
+	import java.util.ArrayList;
+	import java.util.List;
+	
+	/**
+	 * 树的结构
+	 * 1
+	 * /\
+	 * 2 3
+	 * / \ /\
+	 * 4 5 6 7
+	 */
+	public class Solution {
+	
+	
+	    public boolean DFS(TreeNode root, List<Integer> path, int key) {
+	        if (root == null) {
+	            return false;
+	        }
+	        path.add(root.val);
+	        //如果找到目标节点后就不需要向下搜索，并且需要一个状态值向上传递，然每层循环都停止搜索
+	        if (root.val == key) {
+	            return true;
+	        }
+	        //左边必须搜索，左边如果搜索到了，则右边可以不搜索（关键）
+	        boolean find = DFS(root.left, path, key) || DFS(root.right, path, key);
+	        //如果找到了直接返回
+	        if (find) {
+	            return true;
+	        } else {//没找到，需要将当前节点弹出，并且返回false
+	            path.remove(path.size() - 1);
+	            return false;
+	        }
+	    }
+	
+	    public static void main(String[] args) {
+	        TreeNode t4 = new TreeNode(4, null, null);
+	        TreeNode t5 = new TreeNode(5, null, null);
+	        TreeNode t6 = new TreeNode(6, null, null);
+	        TreeNode t7 = new TreeNode(7, null, null);
+	        TreeNode t2 = new TreeNode(2, t4, t5);
+	        TreeNode t3 = new TreeNode(3, t6, t7);
+	        TreeNode root = new TreeNode(1, t2, t3);
+	        Solution s = new Solution();
+	        List<Integer> path = new ArrayList<Integer>();
+	        s.DFS(root, path, 3);
+	        System.out.println(path);
+	    }
+	
+	}
+
+<br/>
+<font color='red'>**关键点：**</font>
+
+* 找到之后返回true
+* 如果左边找到了，不需要找右边
+* 如果已经找到了，不需要remove路径；没找到需要移出路径
+
+4、最近公共祖先
+
+	import java.util.ArrayList;
+	import java.util.List;
+	
+	/**
+	 * 树的结构
+	 * 1
+	 * /\
+	 * 2 3
+	 * / \ /\
+	 * 4 5 6 7
+	 */
+	public class Solution {
+	
+	    public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+	        if (root == null || p == null || q == null) {
+	            return null;
+	        }
+	
+	        List<TreeNode> path1 = new ArrayList<TreeNode>();
+	        List<TreeNode> path2 = new ArrayList<TreeNode>();
+	
+	        boolean find1 = DFS(root, path1, p);
+	        boolean find2 = DFS(root, path2, q);
+	
+	        TreeNode result = null;
+	        if (find1 && find2) {
+	            int n = Math.min(path1.size(), path2.size());
+	            for (int i = 0; i < n; i++) {
+	                if (path1.get(i).val == path2.get(i).val) {
+	                    result = path1.get(i);
+	                }else{
+	                    break;
+	                }
+	            }
+	            return result;
+	        } else {
+	            return null;
+	        }
+	    }
+	
+	    //找路径
+	    public boolean DFS(TreeNode root, List<TreeNode> path, TreeNode key) {
+	        if (root == null) {
+	            return false;
+	        }
+	        path.add(root);
+	        if (root == key) {
+	            return true;
+	        }
+	        boolean find = DFS(root.left, path, key) || DFS(root.right, path, key);
+	        if (find) {
+	            return true;
+	        } else {
+	            path.remove(path.size() - 1);
+	            return false;
+	        }
+	
+	    }
+	
+	    public static void main(String[] args) {
+	        TreeNode t4 = new TreeNode(4, null, null);
+	        TreeNode t5 = new TreeNode(5, null, null);
+	        TreeNode t6 = new TreeNode(6, null, null);
+	        TreeNode t7 = new TreeNode(7, null, null);
+	        TreeNode t2 = new TreeNode(2, t4, t5);
+	        TreeNode t3 = new TreeNode(3, t6, t7);
+	        TreeNode root = new TreeNode(1, t2, t3);
+	        Solution s = new Solution();
+	        System.out.println(s.lowestCommonAncestor(root,t2,t4));
+	    }
+	
+	}
+
 ## Tarjan(离线)算法
 
 ### 原理（最浅显易懂的描述）
