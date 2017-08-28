@@ -201,6 +201,40 @@ tags:
 	
 	}
 
+参考http://www.acmerblog.com/lca-lowest-common-ancestor-5574.html
+
+## 遍历一次
+
+	public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+	    //异常输入
+	    if(root == null || p == null || q == null){
+	        return null;
+	    }
+	    //两个节点在同一侧
+	    if(root == p || root == q){
+	        return root;
+	    }
+	    //在不同侧
+	    TreeNode left = lowestCommonAncestor(root.left, p, q);
+	    TreeNode right = lowestCommonAncestor(root.right, p, q);
+	    if(left != null && right != null){
+	        return root;
+	    }
+	    if(left != null){
+	        return left;
+	    }
+	    if(right != null){
+	        return right;
+	    }
+	    return null;
+	}
+
+时间复杂度为O(n)，但是上面的方法还是有所局限的，必须保证两个要查找的节点n1和n2都出现在树中。如果n1不在树中，则会返回n2为LCA，理想答案应该为NULL。要解决这个问题，**可以先查找下n1和n2是否出现在树中**，然后加几个判断即可。
+
+参考：
+
+http://www.acmerblog.com/lca-lowest-common-ancestor-5574.html
+
 ## Tarjan(离线)算法
 
 ### 原理（最浅显易懂的描述）
