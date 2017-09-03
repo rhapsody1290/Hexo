@@ -11,411 +11,194 @@ tags:
 
 ---
 
-## Thrift
+## Thrift 优点
 
-http://www.ibm.com/developerworks/cn/java/j-lo-apachethrift/#ibm-pcon
-目前流行的服务调用方式有很多种，例如基于 SOAP 消息格式的 Web Service，基于 JSON 消息格式的 RESTful 服务等。**其中所用到的数据传输方式包括 XML，JSON 等，然而 XML 相对体积太大，传输效率低，JSON 体积较小，新颖，但还不够完善**。本文将介绍由 Facebook 开发的远程服务调用框架 Apache Thrift，它采用接口描述语言定义并创建服务，支持可扩展的跨语言服务开发，所包含的代码生成引擎可以在多种语言中，如 C++, Java, Python, PHP, Ruby, Erlang, Perl, Haskell, C#, Cocoa, Smalltalk 等创建高效的、无缝的服务，其传输数据采用二进制格式，相对 XML 和 JSON 体积更小，对于高并发、大数据量和多语言的环境更有优势
+1、跨语言
+2、可扩展，简洁的四层接口抽象，每一层都可以独立的扩展增强或替换
+3、二进制的编解码方式和NIO的底层传输为它提供了不错的性能
 
-### Thrift流程
+## 四层接口抽象
 
-1、使用 IDL 语法定义接口 Hello.thrift
++-------------------------------------------+
+| Server |
+| (single-threaded, event-driven etc) |
++-------------------------------------------+
+| Processor |
+| (compiler generated) |
++-------------------------------------------+
+| Protocol |
+| (JSON, compact etc) |
++-------------------------------------------+
+| Transport |
+| (raw TCP, HTTP etc) |
++-------------------------------------------+
 
-    namespace java service.demo
-    service Hello{
-        string helloString(1:string para)
-    }
+**Transport**层提供了一个简单的网络读写抽象层，有阻塞与非阻塞的TCP实现与HTTP的实现。
 
-service.demo：包名
-Hello：生成的类名
-helloString：定义的接口名
+**Protocol**层定义了IDL中的数据结构与Transport层的传输数据格式之间的编解码机制。传输格式有二进制，压缩二进制，JSON等格式，IDL中的数据结构则包括Message，Struct，List，Map，Int，String，Bytes等。
 
-2、使用thrift编译器生成Java代码
+**Processor**层由编译器编译IDL文件生成。
+生成的代码会将传输层的数据**解码为参数对象**(比如商品对象有id与name两个属性，生成的代码会调用Protocol层的readInt与readString方法读出这两个属性值)，**然后调用由用户所实现的函数，并将结果编码送回。**
 
-命令：
+举个例子：
 
-    thrift -r --gen java tutorial.thrift
+服务器端定义函数
 
-thrift编译器下载地址：
-
-    http://www.apache.org/dyn/closer.cgi?path=/thrift/0.9.3/thrift-0.9.3.exe
-
-3、生成对应语言的接口代码及服务调用的底层通信细节，生成的对应语言代码与编译器位于同一目录
-
-    package service.demo;
-    
-    class Hello{
-    
-        //生成的对应语言的接口
-        public interface Iface {
-            public String helloString(String para) throws org.apache.thrift.TException;
-        }
-        
-        //###客户端调用逻辑
-        public static class Client extends org.apache.thrift.TServiceClient implements Iface {
-            ...
-            //实现的接口方法
-            public String helloString(String para) throws org.apache.thrift.TException
-            {
-                //向服务器发送请求方法+参数
-                send_helloString(para);
-                //接受服务器的请求
-                return recv_helloString();
-            }
-        
-            //发送请求方法+参数，其中helloString为调用服务器的方法名，args为方法参数
-            public void send_helloString(String para) throws org.apache.thrift.TException
-            {
-                helloString_args args = new helloString_args();
-                args.setPara(para);
-                sendBase("helloString", args);
-            }
-        
-            //接受服务器返回的结果
-            public String recv_helloString() throws org.apache.thrift.TException
-            {
-                helloString_result result = new helloString_result();
-                receiveBase(result, "helloString");
-                if (result.isSetSuccess()) {
-                    return result.success;
-                }
-                throw new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.MISSING_RESULT, "helloString failed: unknown result");
-            }
-            ...
-        }
-        
-    }
-    //### 服务端处理逻辑
-    public static class Processor<I extends Iface> extends org.apache.thrift.TBaseProcessor<I> implements org.apache.thrift.TProcessor {
-    
-        private static <I extends Iface> Map<String,  org.apache.thrift.ProcessFunction<I, ? extends  org.apache.thrift.TBase>> getProcessMap(Map<String,  org.apache.thrift.ProcessFunction<I, ? extends  org.apache.thrift.TBase>> processMap) {
-            processMap.put("helloString", new helloString());
-            return processMap;
-        }
-        
-            public static class helloString<I extends Iface> extends org.apache.thrift.ProcessFunction<I, helloString_args> {
-            public helloString() {
-            super("helloString");
-        }
-        
-        public helloString_args getEmptyArgsInstance() {
-            return new helloString_args();
-        }
-        
-        protected boolean isOneway() {
-            return false;
-        }
-        
-        public helloString_result getResult(I iface, helloString_args args) throws org.apache.thrift.TException {
-            helloString_result result = new helloString_result();
-                result.success = iface.helloString(args.para);
-                return result;
-            }
-        }
-    
-    }
-    
-4、创建接口实现类
-
-服务器创建接口实现类
-
-    public HelloServiceImpl implements Hello.Iface{
-        @Override
-        public String helloString(String para) throws org.apache.thrift.TException{
-            System.our.println("Hello");
-        }
-    }
-
-5、启动Thrift服务器，HelloServiceImpl 作为具体的处理器传递给 Thrift 服务器
-
-	public class Server {
-	    /**
-	     * 启动 Thrift 服务器
-	     * @param args
-	     */
-	    public static void main(String[] args) throws TTransportException {
-	        try {
-	            //1、传输层，设置服务端口为 7911
-	            TServerSocket serverTransport = new TServerSocket(7911);
-	            //2、协议，工厂为 TBinaryProtocol.Factory
-	            TBinaryProtocol.Factory proFactory = new TBinaryProtocol.Factory();
-	            // 处理器
-	            TProcessor processor = new Hello.Processor(new HelloImpl());
-	
-	            //3、服务端类型，关联端口、协议、处理器与 Hello 服务的实现
-	            TThreadPoolServer.Args tArgs = new TThreadPoolServer.Args(serverTransport);
-	            tArgs.processor(processor);
-	            tArgs.protocolFactory(proFactory);
-	
-	            TServer server = new TThreadPoolServer(tArgs);
-	            System.out.println("Start server on port 7911...");
-	            server.serve();
-	        } catch (TTransportException e) {
-	            e.printStackTrace();
-	        }
-	    }
+	Product get(Integer id, String name){
+		return new Product(id, name);
 	}
 
-6、客户端连接到端口，发送请求调用方法，服务端响应结果，客户端接受结果
+1、客户端调用 get(id,name) 时，传递方法名get，参数id、name
+2、服务器Transport接收到数据get、id、name
+3、Processor调用Protocal的方法从Transport解码，从二进制转化为Integer和String，然后再服务器端调用get方法，得到结果Product
 
-	public class Client {
-	    /**
-	     * 调用 Hello 服务
-	     *
-	     * @param args
-	     */
-	    public static void main(String[] args) {
-	        try {
-	            // 设置调用的服务地址为本地，端口为 7911
-	            TTransport transport = new TSocket("localhost", 7911);
-	            transport.open();
-	            // 设置传输协议为 TBinaryProtocol
-	            TProtocol protocol = new TBinaryProtocol(transport);
-	            //客户端调用
-	            Hello.Client client = new Hello.Client(protocol);
-	            // 调用服务的 helloVoid 方法
-	            System.out.println(client.helloString("客户端传入参数"));
-	            transport.close();
-	        } catch (TTransportException e) {
-	            e.printStackTrace();
-	        } catch (TException e) {
-	            e.printStackTrace();
-	        }
-	    }
-	}
+在服务端， **Server**层创建并管理上面的三层，同时提供线程的调度管理。而对于NIO的实现，Server层可谓操碎了心。
 
-### Thrift架构
+在客户端， Client层由编译器直接生成，也由上面的三层代码组成。只要语言支持，客户端有同步与异步两种模式。
 
-![](http://i.imgur.com/h1KGvdq.jpg)
+## 四层接口的方法
 
-如图所示，图中黄色部分是用户实现的业务逻辑，褐色部分是根据 Thrift 定义的服务接口描述文件生成的客户端和服务器端代码框架，红色部分是根据 Thrift 文件生成代码实现数据的读写操作。红色部分以下是 Thrift 的传输体系、协议以及底层 I/O 通信，使用 Thrift 可以很方便的定义一个服务并且选择不同的传输协议和传输层而不用重新生成代码。
+### Transport层
 
-Thrift 服务器包含用于绑定协议和传输层的基础架构，它提供阻塞、非阻塞、单线程和多线程的模式运行在服务器上，可以配合服务器 / 容器一起运行，可以和现有的 J2EE 服务器 /Web 容器无缝的结合。
+**Transport**
 
-![](http://i.imgur.com/nZ4Aoap.png)
+TTransport除了open/close/flush，最重要的方法是int read(byte[] buf, int off, int len)，void write(byte[] buf, int off, int len)，读出、写入固定长度的内容。
 
-该图所示是 HelloServiceServer 启动的过程以及服务被客户端调用时，服务器的响应过程。从图中我们可以看到，程序调用了 TThreadPoolServer 的 serve 方法后，server 进入阻塞监听状态，其阻塞在 TServerSocket 的 accept 方法上。当接收到来自客户端的消息后，服务器发起一个新线程处理这个消息请求，原线程再次进入阻塞状态。在新线程中，服务器通过 TBinaryProtocol 协议读取消息内容，调用 HelloServiceImpl 的 helloVoid 方法，并将结果写入 helloVoid_result 中传回客户端。
+* TSocket使用经典的JDK Blocking IO的Transport实现
+* TNonblockingSocket，使用JDK NIO的Transport实现
+* 相应的，TServerSocket和TNonblockingServerSocket是ServerTransport的BIO、NIO实现，主要实现侦听端口
 
-![](http://i.imgur.com/KqC4Vo6.png)
+**WrapperTransport**
 
-该图所示是 HelloServiceClient 调用服务的过程以及接收到服务器端的返回值后处理结果的过程。从图中我们可以看到，程序调用了 Hello.Client 的 helloVoid 方法，在 helloVoid 方法中，通过 send_helloVoid 方法发送对服务的调用请求，通过 recv_helloVoid 方法接收服务处理请求后返回的结果。
+包裹一个底层的Transport，并利用自己的Buffer进行额外的操作。
 
-### 数据类型
+**作用：在数据传输时需要判断什么时候是读取的开始、什么时候是读取的末尾，即需要用分隔符进行标识；使用Frame帧的概念就可以解决这个问题**
 
-Thrift 脚本可定义的数据类型包括以下几种类型：
+### Protocol层
 
-	基本类型：
-	bool：布尔值，true 或 false，对应 Java 的 boolean
-	byte：8 位有符号整数，对应 Java 的 byte
-	i16：16 位有符号整数，对应 Java 的 short
-	i32：32 位有符号整数，对应 Java 的 int
-	i64：64 位有符号整数，对应 Java 的 long
-	double：64 位浮点数，对应 Java 的 double
-	string：未知编码文本或二进制字符串，对应 Java 的 String
-	结构体类型：
-	struct：定义公共的对象，类似于 C 语言中的结构体定义，在 Java 中是一个 JavaBean
-	容器类型：
-	list：对应 Java 的 ArrayList
-	set：对应 Java 的 HashSet
-	map：对应 Java 的 HashMap
-	异常类型：
-	exception：对应 Java 的 Exception
-	服务类型：
-	service：对应服务的类
+支持类型：
 
-### ★协议
+* 基本类型: i16，i32，i64, double, boolean，byte，byte[], String。
+* 容器类型: List，Set，Map，TList/TSet/TMap类包含其元素的类型与元素的总个数。
+* Struct类型，即面向对象的Class，继承于TBase。TStruct类有Name属性，还含有一系列的Field。TField类有自己的Name，类型，顺序id属性。
+* Exception类型也是个Struct，继承于TException这个checked exception。
+* Enum类型传输时是个i32。
+* Message类型封装往返的RPC消息。TMessage类包含Name，类型(请求，返回，异常，ONEWAY)与seqId属性。
 
-Thrift 可以让用户选择客户端与服务端之间传输通信协议的类别，在传输协议上总体划分为**文本 (text)** 和**二进制 (binary)** 传输协议，为节约带宽，提高传输效率，一般情况下使用二进制类型的传输协议为多数，有时还会使用基于文本类型的协议，这需要根据项目 / 产品中的实际需求。常用协议有以下几种：
+方法：
 
-* TBinaryProtocol —— 二进制编码格式进行数据传输
+* Protocol 层对上述数据结构有read与write的方法
+* 对基本类型是直接读写，对结构类型则是先调用readXXXBegin()，再调用其子元素的read()方法，再调用readXXXEnd()。
+* 在所有函数中，Protocol层会直接调用Transport层读写特定长度的数据
 
-	  // 设置协议工厂为 TBinaryProtocol.Factory
-	  TBinaryProtocol.Factory proFactory = new TBinaryProtocol.Factory();
+### Processor层
 
-* TCompactProtocol —— 高效率的、密集的二进制编码格式进行数据传输，构建 TCompactProtocol 协议的服务器和客户端只需替换案例中 TBinaryProtocol 协议部分即可
-	  TCompactProtocol.Factory proFactory = new TCompactProtocol.Factory();
+具体流程：
 
-* TJSONProtocol —— 使用 JSON 的数据编码协议进行数据传输，构建 TJSONProtocol 协议的服务器和客户端只需替换案例中 TBinaryProtocol 协议部分即可
-  	TJSONProtocol.Factory proFactory = new TJSONProtocol.Factory();
+TProcessFunction是生成的服务方法类的基类，它的process函数会完成如下步骤：
 
-* TSimpleJSONProtocol —— 只提供 JSON 只写的协议，适用于通过脚本语言解析
+1. 调用生成的args对象的read方法从protocol层读出自己
+2. 调用子类生成的getResult()方法：拆分args对象得到参数，调用真正的用户实现得到结果，并组装成生成的result对象。
+3. 写消息头，
+4. 调用生成的result对象的write方法将自己写入protocol层
+5 调用transport层的flush()。
 
-### ★传输层
+### Server层
 
-常用的传输层有以下几种：
+基类TServer相当于一个容器，拥有生产TProcessor、TTransport、TProtocol的工厂对象。改变这些工厂类，可以修饰包裹Transport与Protocol类，改变TProcessor的单例模式或与Spring集成等等。
 
-* TSocket —— 使用阻塞式 I/O 进行传输，是最常见的模式（案例）
+**Blocking Server**
 
+* TSimpleServer同时只能处理一个Client连接，只是个玩具。
+* TThreadPoolServer才是典型的多线程处理的Blocking Server实现。
 
-	//服务端
-	TServerSocket serverTransport = new TServerSocket(7911);
-	//客户端
-	TTransport transport = new TSocket("localhost", 7911);
+**NonBlockingServer**
 
-* TFramedTransport —— 使用非阻塞方式，按块的大小进行传输，类似于 Java 中的 NIO，若使用 TFramedTransport 传输层，其**服务器必须修改为非阻塞的服务类型**，**客户端只需替换案例中 TTransport 部分**
+★★★TThreadedSelectorServer有一条线程专门负责accept，若干条Selector线程处理网络IO，一个Worker线程池处理消息。
 
-服务器
+很明显TThreadedSelectorServer是被使用得最多的，因为在多核环境下多条Selector线程的表现会更好
 
-	
-	TNonblockingServerTransport serverTransport; 
-	serverTransport = new TNonblockingServerSocket(10005); 
-	Hello.Processor processor = new Hello.Processor(new HelloServiceImpl()); 
-	TServer server = new TNonblockingServer(processor, serverTransport); 
-	System.out.println("Start server on port 10005 ..."); 
-	server.serve();
+具体流程：
 
-客户端
+1、AcceptThread线程使用TNonblockingServerTransport执行**accept**操作，将accept到的Transport round-robin的交给其中一条SelectorThread
+2、AcceptThread是先扔给SelectorThread里的Queue(默认长度只有4，满了就要阻塞等待)
+3、
 
-  	TTransport transport = new TFramedTransport(new TSocket("localhost", 10005));
+因为SelectorThread自己也要处理IO，所以
 
-* TNonblockingTransport —— 使用非阻塞方式，用于构建异步客户端
-使用方法请参考 Thrift 异步客户端构建
+SelectorThread每个循环各执行一次如下动作
+1. 注册Transport
+2. select()处理IO
+3. 处理FrameBuffer的状态变化
 
-### ★服务端类型
+## Thrift网络服务模型（即Server层，详解）                     
 
-常见的服务端类型有以下几种：
+**1、TSimpleServer**
 
-* TSimpleServer —— 单线程服务器端使用标准的阻塞式 I/O
+TSimpleServer实现是非常的简单，**循环监听(即while(true))** 新请求的到来并完成对请求的处理，是个单线程阻塞模型。由于是**一次只能接收和处理一个socket连接**，效率比较低，在实际开发过程中很少用到它。
 
+**2、TThreadPoolServer**
 
-	TServerSocket serverTransport = new TServerSocket(7911); 
-	TProcessor processor = new Hello.Processor(new HelloServiceImpl()); 
-	TServer server = new TSimpleServer(processor, serverTransport); 
-	System.out.println("Start server on port 7911..."); 
-	server.serve();
+**ThreadPoolServer为解决了TSimpleServer不支持并发和多连接的问题, 引入了线程池。**但仍然是多线程阻塞模式即实现的模型是One Thread Per Connection。
 
-* TThreadPoolServer —— 多线程服务器端使用标准的阻塞式 I/O（案例）
+线程池采用能线程数可伸缩的模式，线程池中的队列采用同步队列(SynchronousQueue)。
 
+**ThreadPoolServer<font color='red'>拆分</font>了监听线程(accept)和处理客户端连接的工作线程(worker), 监听线程每接到一个客户端, 就<font color='red'>投给</font>线程池去处理。**
 
-	// 设置服务端口为 7911
-	TServerSocket serverTransport = new TServerSocket(7911);
-	// 设置协议工厂为 TBinaryProtocol.Factory
-	TBinaryProtocol.Factory proFactory = new TBinaryProtocol.Factory();
-	// 处理器
-	TProcessor processor = new Hello.Processor(new HelloImpl());
-	
-	//关联端口、协议、处理器与 Hello 服务的实现
-	TThreadPoolServer.Args tArgs = new TThreadPoolServer.Args(serverTransport);
-	tArgs.processor(processor);
-	tArgs.protocolFactory(proFactory);
-	
-	TServer server = new TThreadPoolServer(tArgs);
-	System.out.println("Start server on port 7911...");
-	server.serve();
+TThreadPoolServer模式优点：
 
-* TNonblockingServer —— 多线程服务器端使用非阻塞式 I/O
-使用方法请参考 Thrift 异步客户端构建
+线程池模式中，数据读取和业务处理都交由线程池完成，主线程只负责监听新连接，因此在并发量较大时新连接也能够被及时接受。线程池模式比较适合服务器端能预知最多有多少个客户端并发的情况，这时每个请求都能被业务线程池及时处理，性能也非常高。
 
-### Thrift 异步客户端构建
+TThreadPoolServer模式缺点：
 
-Thrift 提供非阻塞的调用方式，可构建异步客户端。在这种方式中，Thrift 提供了新的类 TAsyncClientManager 用于管理客户端的请求，在一个线程上追踪请求和响应，同时通过接口 AsyncClient 传递标准的参数和 callback 对象，服务调用完成后，callback 提供了处理调用结果和异常的方法。
-**首先我们看 callback 的实现：**
+**线程池模式的处理能力受限于线程池的工作能力，当并发请求数大于线程池中的线程数时，新请求也只能排队等待。**
 
-	package service.callback; 
-	import org.apache.thrift.async.AsyncMethodCallback; 
-	
-	public class MethodCallback implements AsyncMethodCallback { 
-		Object response = null; 
-		
-		public Object getResult() { 
-		    // 返回结果值
-		    return this.response; 
-		} 
-		
-		// 处理服务返回的结果值
-		@Override 
-		public void onComplete(Object response) { 
-		    this.response = response; 
-		} 
-		// 处理调用服务过程中出现的异常
-		@Override 
-		public void onError(Throwable throwable) { 
-		
-		} 
-	}
+**3、TNonblockingServer**
 
-如代码所示，onComplete 方法接收服务处理后的结果，此处我们将结果 response 直接赋值给 callback 的私有属性 response。onError 方法接收服务处理过程中抛出的异常，此处未对异常进行处理。
+TNonblockingServer采用**单线程非阻塞(NIO)**的模式, 借助Channel/Selector机制, 采用IO事件模型来处理。**所有的socket都被注册到selector中，在一个线程中通过seletor循环监控所有的socket，**每次selector结束时，处理所有的处于就绪状态的socket，对于有数据到来的socket进行数据读取操作，对于有数据发送的socket则进行数据发送，对于监听socket则产生一个新业务socket并将其注册到selector中。
 
-**创建非阻塞服务器端实现代码**，将 HelloServiceImpl 作为具体的处理器传递给异步 Thrift 服务器，代码如下：
+TNonblockingServer模式优点：
 
-	package service.server; 
-	import org.apache.thrift.server.TNonblockingServer; 
-	import org.apache.thrift.server.TServer; 
-	import org.apache.thrift.transport.TNonblockingServerSocket; 
-	import org.apache.thrift.transport.TNonblockingServerTransport; 
-	import org.apache.thrift.transport.TTransportException; 
-	import service.demo.Hello; 
-	import service.demo.HelloServiceImpl; 
-	
-	public class HelloServiceAsyncServer { 
-		/** 
-		 * 启动 Thrift 异步服务器
-		 * @param args 
-		 */ 
-		public static void main(String[] args) { 
-		    TNonblockingServerTransport serverTransport; 
-		    try { 
-		        serverTransport = new TNonblockingServerSocket(10005); 
-		        Hello.Processor processor = new Hello.Processor( 
-		                new HelloServiceImpl()); 
-		        TServer server = new TNonblockingServer(processor, serverTransport); 
-		        System.out.println("Start server on port 10005 ..."); 
-		        server.serve(); 
-		    } catch (TTransportException e) { 
-		        e.printStackTrace(); 
-		    } 
-		} 
-	}
+相比于TSimpleServer效率提升主要体现在IO多路复用上，TNonblockingServer采用非阻塞IO，同时监控多个socket的状态变化；
 
-HelloServiceAsyncServer 通过 java.nio.channels.ServerSocketChannel 创建非阻塞的服务器端等待客户端的连接。
+TNonblockingServer模式缺点：
 
-**创建异步客户端实现代码**，调用 Hello.AsyncClient 访问服务端的逻辑实现，将 MethodCallback 对象作为参数传入调用方法中，代码如下：
+**TNonblockingServer模式在业务处理上还是采用单线程顺序来完成，**在业务处理比较复杂、耗时的时候，例如某些接口函数需要读取数据库执行时间较长，此时该模式效率也不高，因为多个调用请求任务依然是顺序一个接一个执行。
 
-	package service.client; 
-	import java.io.IOException; 
-	import org.apache.thrift.async.AsyncMethodCallback; 
-	import org.apache.thrift.async.TAsyncClientManager; 
-	import org.apache.thrift.protocol.TBinaryProtocol; 
-	import org.apache.thrift.protocol.TProtocolFactory; 
-	import org.apache.thrift.transport.TNonblockingSocket; 
-	import org.apache.thrift.transport.TNonblockingTransport; 
-	import service.callback.MethodCallback; 
-	import service.demo.Hello; 
-	
-	public class HelloServiceAsyncClient { 
-		/** 
-		 * 调用 Hello 服务
-		 * @param args 
-		 */ 
-		public static void main(String[] args) throws Exception { 
-		    try { 
-		        TAsyncClientManager clientManager = new TAsyncClientManager(); 
-		        TNonblockingTransport transport = new TNonblockingSocket( 
-		                "localhost", 10005); 
-		        TProtocolFactory protocol = new TBinaryProtocol.Factory(); 
-		        Hello.AsyncClient asyncClient = new Hello.AsyncClient(protocol, 
-		                clientManager, transport); 
-		        System.out.println("Client calls ....."); 
-		        MethodCallback callBack = new MethodCallback(); 
-		        asyncClient.helloString("Hello World", callBack); 
-		        Object res = callBack.getResult(); 
-		        while (res == null) { 
-		            res = callBack.getResult(); 
-		        } 
-		        System.out.println(((Hello.AsyncClient.helloString_call) res) 
-		                .getResult()); 
-		    } catch (IOException e) { 
-		        e.printStackTrace(); 
-		    } 
-		} 
-	}
-HelloServiceAsyncClient 通过 java.nio.channels.Socketchannel 创建异步客户端与服务器建立连接。在本文中异步客户端通过以下的循环代码实现了同步效果，读者可去除这部分代码后再运行对比。
+**4、THsHaServer**
 
-异步客户端实现同步效果代码段
+THsHaServer类是TNonblockingServer类的子类，为解决TNonblockingServer的缺点, THsHa引入了线程池去处理, 其模型**把读写任务放到线程池去处理即多线程非阻塞模式**。HsHa是: Half-sync/Half-async的处理模式, Half-aysnc是在处理IO事件上(accept/read/write io), Half-sync用于handler对rpc的同步处理上。因此可以认为THsHaServer半同步半异步。
 
-	Object res = callBack.getResult();
-	// 等待服务调用后的返回结果
-	while (res == null) {
-	   res = callBack.getResult();
-	}
+THsHaServer的优点：
 
-我们可以构建一个 TNonblockingServer 服务类型的服务端，在客户端构建一个 TFramedTransport 传输层的同步客户端和一个 TNonblockingTransport 传输层的异步客户端，那么一个服务就可以通过一个 socket 端口提供两种不同的调用方式。有兴趣的读者可以尝试一下。
+与TNonblockingServer模式相比，THsHaServer在完成数据读取之后，将业务处理过程交由一个线程池来完成，主线程直接返回进行下一次循环操作，效率大大提升；
+
+THsHaServer的缺点：
+
+主线程需要完成对所有socket的监听以及数据读写的工作，**当并发请求数较大时，且发送数据量较多时，监听socket上新连接请求不能被及时接受。**
+
+**5、TThreadedSelectorServer**
+
+**TThreadedSelectorServer是大家广泛采用的服务模型**，其多线程服务器端使用非堵塞式I/O模型，是对TNonblockingServer的扩充, 其分离了Accept和Read/Write的Selector线程, 同时引入Worker工作线程池。
+
+（1）一个AcceptThread线程对象，专门用于处理**监听socket上的新连接**；
+
+（2）若干个SelectorThread对象专门用于处理业务socket的网络I/O操作，所有网络数据的读写均是有这些线程来完成；**每个SelectorThread维护一个Socket队列，负责监听这些通道上的I/O**
+
+（3）一个负载均衡器SelectorThreadLoadBalancer对象，主要用于AcceptThread线程接收到一个新socket连接请求时，决定将这个新连接请求分配给哪个SelectorThread线程。
+
+（4）一个ExecutorService类型的工作线程池，在SelectorThread线程中，监听到有业务socket中有调用请求过来，则将请求读取之后，交个ExecutorService线程池中的线程完成此次调用的具体执行
+
+![](https://i.imgur.com/C0VlbYX.png)
+
+MainReactor就是Accept线程, 用于监听客户端连接, SubReactor采用IO事件线程(多个), 主要负责对所有客户端的IO读写事件进行处理. 而Worker工作线程主要用于处理每个rpc请求的handler回调处理(这部分是同步的)。因此其也是Half-Sync/Half-Async（半异步-半同步）的 。
+
+TThreadedSelectorServer模式对于大部分应用场景性能都不会差，因为其有一个专门的线程AcceptThread用于处理新连接请求，因此能够及时响应大量并发连接请求；另外它将网络I/O操作分散到多个SelectorThread线程中来完成，因此能够快速对网络I/O进行读写操作，能够很好地应对网络I/O较多的情况。
+
+## QM总结
+
+![](https://i.imgur.com/xgi40Dl.jpg)
+
+## 参考
+
+http://calvin1978.blogcn.com/articles/apache-thrift.html
