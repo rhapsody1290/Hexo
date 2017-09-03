@@ -201,4 +201,7 @@ TThreadedSelectorServer模式对于大部分应用场景性能都不会差，因
 
 ## 参考
 
+由浅入深了解Thrift之服务模型和序列化机制
+http://www.cnblogs.com/exceptioneye/p/4945073.html
+
 http://calvin1978.blogcn.com/articles/apache-thrift.html
