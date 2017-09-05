@@ -1,5 +1,5 @@
 ---
-title: Java线程池
+title: Java多线程面试题
 
 date: 2017-09-04 20:15:00
 
@@ -7,9 +7,18 @@ categories:
 - Java并发编程
 
 tags:
-- 线程池
+- 面试题
 
 ---
+## synchronized 和 lock 的区别
+
+1、synchronized在JVM层面上实现，隐式加锁、释放锁，执行完同步代码或者出现异常都会自动释放锁，lock是代码显式加锁，释放锁，如果要保证锁定一定会被释放，就必须将unLock()放到finally{}中
+
+2、ReentrantLock 拥有 Synchronized 相同的并发性和内存语义，此外还多了锁投票，定时锁等候和中断锁等候；
+
+  线程A和B都要获取对象O的锁定，假设A获取了对象O锁，B将等待A释放对O的锁定，
+  如果使用 synchronized ，如果A不释放，B将一直等下去，不能被中断
+  如果 使用ReentrantLock，如果A不释放，可以使B在等待了足够长的时间以后，中断等待，而干别的事情
 
 ## 线程池的好处
 
