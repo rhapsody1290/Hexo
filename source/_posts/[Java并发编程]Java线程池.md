@@ -42,4 +42,5 @@ tags:
 * 对于多个任务，并且要求FIFO执行，使用SingleThreadPool
 
 因为执行多任务，new Thread 无法复用线程，需要频繁的创建、销毁线程，耗费系统资源
+
 对于单一确定的任务，使用SingleThreadPool效率比new Thread低，因为SingleThreadPool需要维护任务队列等其他开销
