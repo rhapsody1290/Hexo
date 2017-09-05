@@ -36,4 +36,10 @@ tags:
 **newScheduledThreadPool**创建一个定长线程池，支持定时及周期性任务执行。
 **newSingleThreadExecutor**创建一个单线程化的线程池，它只会用唯一的工作线程来执行任务，保证所有任务按照指定顺序(FIFO, LIFO, 优先级)执行。
 
-## 单线程与newSingleThreadPool的区别
+## new Thread 与 newSingleThreadPool 的区别
+
+* 对于单个、确定的任务，使用new Thread
+* 对于多个任务，并且要求FIFO执行，使用SingleThreadPool
+
+因为执行多任务，new Thread 无法复用线程，需要频繁的创建、销毁线程，耗费系统资源
+对于单一确定的任务，使用SingleThreadPool效率比new Thread低，因为SingleThreadPool需要维护任务队列等其他开销
