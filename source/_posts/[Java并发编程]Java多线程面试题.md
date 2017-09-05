@@ -20,6 +20,8 @@ tags:
   如果使用 synchronized ，如果A不释放，B将一直等下去，不能被中断
   如果 使用ReentrantLock，如果A不释放，可以使B在等待了足够长的时间以后，中断等待，而干别的事情
 
+3、在资源竞争不是很激烈的情况下，Synchronized的性能要优于ReetrantLock，但是在资源竞争很激烈的情况下，Synchronized的性能会下降几十倍，但是ReetrantLock的性能能维持常态
+
 ## 线程池的好处
 
 1、减少在创建和销毁线程上所花的时间以及系统资源的开销
