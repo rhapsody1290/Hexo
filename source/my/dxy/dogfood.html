@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>俘获你的心</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <style>
+        .contain {
+            position:absolute;
+            right:0;
+            left:0;
+            top: 40px;
+            width:600px;
+            height:400px;
+            margin: 0 auto;
+        }
+        .text {
+            margin: 10px 30px;
+            display: inline-block;
+            width:550px;
+            vertical-align: middle;
+        }
+        .img {
+            /*vertical-align: middle;
+            margin: 51px 0 ;*/
+            width:200px;
+            height:120px;
+			position: absolute;
+            top:150px;
+            left: 360px;
+        }
+        .btn {
+            width: 70px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid #3385ff;
+            border-radius: 4px;
+            background-color: #3385ff;
+        }
+        .ok {
+            margin: 40px 0 0 0;
+            width: 215px;
+            font-size: 27px;
+            background-color: #ff0000;
+            border: 1px solid #ff0000;
+			position: absolute;
+            top: 270px;
+            left: 30px;
+        }
+        .nope {
+            font-size: 18px;
+            position: absolute;
+            top:315px;
+            left: 360px;
+        }
+        .time {
+            font-family: "Microsoft YaHei";
+            font-size: 10px;
+            margin:50px 0 0 300px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="contain">
+        <div class="text">
+            <p>超级无敌可爱温柔认真善良机灵勇敢的丁丁丁旭颖，你说今天做个纪念吧，我说好呀，那我以程序员特有的方式做了这个小网站，记录在我生命中觉得非常重要的时刻~~~</p>
+			<p>我看过那么多云，你是最灵动的一朵。时间还很长反正有大把时光，有各处精彩等着我们去闯，所以一起吧~~~</p>
+            <h3><br/><br/>对了，这个纪念品你觉得怎么样？</h3>
+        </div>
+        <img src="./biu.jpg" alt="" class="img">
+        <div class="btn ok">
+            哇，我太喜欢了
+        </div>
+        <div class="btn nope">
+            算了吧
+        </div>
+        <div class="time"><br/><br/><br/><br/>
+            2019-02-12 今天我们勇敢得面对自己的内心
+        </div>
+    </div>
+    <script>
+        document.getElementsByClassName('ok')[0].addEventListener('click', function(e){
+            alert('钱钱钱小明很开森开森！你是最靓的小仙女！')
+        });
+        document.getElementsByClassName('nope')[0].addEventListener('mouseover', function(e){
+            var top = 40+Math.random()*230;
+            var left = 80+ Math.random()*360;
+            e.target.style.top = top+'px';
+            e.target.style.left = left+'px';
+        })
+    </script>
+</body>
+
+</html>
